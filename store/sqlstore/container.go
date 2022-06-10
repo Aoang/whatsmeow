@@ -183,7 +183,13 @@ const (
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		ON CONFLICT (jid) DO UPDATE
 		    SET platform=excluded.platform, business_name=excluded.business_name, push_name=excluded.push_name
-	`
+	`  // 	_, err := c.db.Exec(insertDeviceQuery,
+	// 	device.ID.String(), device.RegistrationID,
+	// 	device.NoiseKey.Priv[:],
+	// 	device.IdentityKey.Priv[:],
+
+	// device.AdvSecretKey, device.Account.Details, device.Account.AccountSignature, device.Account.AccountSignatureKey, device.Account.DeviceSignature,
+	// device.Platform, device.BusinessName, device.PushName)
 	deleteDeviceQuery = `DELETE FROM whatsmeow_device WHERE jid=$1`
 )
 
