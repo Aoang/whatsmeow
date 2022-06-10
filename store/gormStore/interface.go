@@ -12,27 +12,6 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type Container struct {
-	db          *gorm.DB
-	aid         uint64
-	account     *Account
-	allowDelete bool
-}
-
-func NewDeviceContainer(db *gorm.DB, accountID uint64) (*Container, error) {
-	var account Account
-	if err := db.Where("id = ?", accountID).First(&account).Error; err != nil {
-		return nil, err
-	}
-
-	return &Container{db: db, account: &account}, nil
-}
-
-func (d *Container) AllowDelete() *Container {
-	d.allowDelete = true
-	return d
-}
-
 func (d *Container) PutDevice(store *store.Device) error {
 	account := *d.account
 
@@ -56,7 +35,7 @@ func (d *Container) PutDevice(store *store.Device) error {
 	account.BusinessName = store.BusinessName
 	account.PushName = store.PushName
 
-	return d.db.Clauses(nil).Create(&account).Error
+	return d.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&account).Error
 }
 
 func (d *Container) DeleteDevice(_ *store.Device) error {
@@ -144,7 +123,7 @@ func (d *Container) DeleteSession(address string) error {
 
 func (d *Container) getPreKeyMaxID(tx *gorm.DB) (uint32, error) {
 	var maxID uint32
-	if err := tx.Model(&PreKey{}).Select("MAX(key_id)").Where("aid = ?", d.aid).
+	if err := tx.Model(&PreKey{}).Select("COALESCE(MAX(key_id), 0)").Where("aid = ?", d.aid).
 		Find(&maxID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return 0, nil
@@ -226,6 +205,9 @@ func (d *Container) GenOnePreKey() (*keys.PreKey, error) {
 func (d *Container) GetPreKey(id uint32) (*keys.PreKey, error) {
 	var arg PreKey
 	if err := d.specify().Where("key_id = ?", id).First(&arg).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	if key := arg.ToKey(); key != nil {
@@ -267,6 +249,9 @@ func (d *Container) PutSenderKey(group, user string, session []byte) error {
 func (d *Container) GetSenderKey(group, user string) ([]byte, error) {
 	var arg SenderKey
 	if err := d.specify().Where("chat_jid = ? AND sender_id = ?", group, user).First(&arg).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return hex.DecodeString(arg.SenderKey)
@@ -289,6 +274,9 @@ func (d *Container) GetAppStateSyncKey(id []byte) (*store.AppStateSyncKey, error
 	var arg AppStateSyncKey
 	err := d.specify().Where("key_id = ?", hex.EncodeToString(id)).First(&arg).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	k := &store.AppStateSyncKey{
@@ -320,6 +308,9 @@ func (d *Container) PutAppStateVersion(name string, version uint64, hash [128]by
 func (d *Container) GetAppStateVersion(name string) (uint64, [128]byte, error) {
 	var arg AppStateVersion
 	if err := d.specify().Where("name = ?", name).First(&arg).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, [128]byte{}, nil
+		}
 		return 0, [128]byte{}, err
 	}
 	hash, err := hex.DecodeString(arg.Hash)
@@ -359,35 +350,13 @@ func (d *Container) DeleteAppStateMutationMACs(name string, indexMACs [][]byte) 
 func (d *Container) GetAppStateMutationMAC(name string, indexMAC []byte) ([]byte, error) {
 	var arg AppStateMutationMac
 	if err := d.specify().Where("name = ? AND index_mac = ?", name, hex.EncodeToString(indexMAC)).First(&arg).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return hex.DecodeString(arg.ValueMac)
 }
-
-/*
-
-type ContactEntry struct {
-	JID       types.JID
-	FirstName string
-	FullName  string
-}
-
-type ContactStore interface {
-	PutPushName(user types.JID, pushName string) (bool, string, error)
-	PutBusinessName(user types.JID, businessName string) error
-	PutContactName(user types.JID, fullName, firstName string) error
-	PutAllContactNames(contacts []ContactEntry) error
-	GetContact(user types.JID) (types.ContactInfo, error)
-	GetAllContacts() (map[types.JID]types.ContactInfo, error)
-}
-
-type ChatSettingsStore interface {
-	PutMutedUntil(chat types.JID, mutedUntil time.Time) error
-	PutPinned(chat types.JID, pinned bool) error
-	PutArchived(chat types.JID, archived bool) error
-	GetChatSettings(chat types.JID) (types.LocalChatSettings, error)
-
-*/
 
 // PutPushName 的行为比较鬼畜
 // 数据库会先查找用户，然后对比 pushName 是否一致，来决定 bool 和 string 返回的什么。
@@ -398,7 +367,7 @@ func (d *Container) PutPushName(user types.JID, pushName string) (bool, string, 
 		isChange     bool
 		previousName string
 	)
-	if err := d.specify().Where("their_id = ?", user.String()).First(&arg).Error; err != nil {
+	if err := d.specify().Where("their_jid = ?", user.String()).First(&arg).Error; err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, "", err
 		}
@@ -413,14 +382,14 @@ func (d *Container) PutPushName(user types.JID, pushName string) (bool, string, 
 	}
 
 	return isChange, previousName, d.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "aid"}, {Name: "their_id"}},
+		Columns:   []clause.Column{{Name: "aid"}, {Name: "their_jid"}},
 		DoUpdates: clause.AssignmentColumns([]string{"push_name"}),
 	}).Create(&arg).Error
 }
 
 func (d *Container) PutBusinessName(user types.JID, businessName string) error {
 	return d.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "aid"}, {Name: "their_id"}},
+		Columns:   []clause.Column{{Name: "aid"}, {Name: "their_jid"}},
 		DoUpdates: clause.AssignmentColumns([]string{"business_name"}),
 	}).Create(&Contact{
 		AID:          d.aid,
@@ -431,7 +400,7 @@ func (d *Container) PutBusinessName(user types.JID, businessName string) error {
 
 func (d *Container) PutContactName(user types.JID, fullName, firstName string) error {
 	return d.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "aid"}, {Name: "their_id"}},
+		Columns:   []clause.Column{{Name: "aid"}, {Name: "their_jid"}},
 		DoUpdates: clause.AssignmentColumns([]string{"full_name", "first_name"}),
 	}).Create(&Contact{
 		AID:       d.aid,
@@ -453,16 +422,21 @@ func (d *Container) PutAllContactNames(contacts []store.ContactEntry) error {
 	}
 
 	return d.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "aid"}, {Name: "their_id"}},
+		Columns:   []clause.Column{{Name: "aid"}, {Name: "their_jid"}},
 		DoUpdates: clause.AssignmentColumns([]string{"full_name", "first_name"}),
 	}).Create(&arr).Error
 }
 
 func (d *Container) GetContact(user types.JID) (types.ContactInfo, error) {
 	var arg Contact
-	if err := d.specify().Where("their_id = ?", user.String()).First(&arg).Error; err != nil {
+
+	if err := d.specify().Where("their_jid = ?", user.String()).First(&arg).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types.ContactInfo{}, nil
+		}
 		return types.ContactInfo{}, err
 	}
+
 	return types.ContactInfo{
 		Found:        true,
 		FirstName:    arg.FirstName,

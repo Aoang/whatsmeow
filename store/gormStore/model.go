@@ -9,7 +9,7 @@ import (
 )
 
 type AppStateMutationMac struct {
-	AID      uint64 `gorm:"index:idx_app_state_mutation_mac,unique"`
+	AID      uint64 `gorm:"column:aid;index:idx_app_state_mutation_mac,unique"`
 	Name     string `gorm:"index:idx_app_state_mutation_mac,unique"`
 	Version  uint64 `gorm:"index:idx_app_state_mutation_mac,unique"`
 	IndexMac string `gorm:"index:idx_app_state_mutation_mac,unique"`
@@ -17,7 +17,7 @@ type AppStateMutationMac struct {
 }
 
 type AppStateSyncKey struct {
-	AID         uint64 `gorm:"index:idx_app_state_sync_key,unique"`
+	AID         uint64 `gorm:"column:aid;index:idx_app_state_sync_key,unique"`
 	KeyID       string `gorm:"index:idx_app_state_sync_key,unique"`
 	KeyData     string
 	Timestamp   int64
@@ -25,23 +25,23 @@ type AppStateSyncKey struct {
 }
 
 type AppStateVersion struct {
-	AID     uint64 `gorm:"index:idx_app_state_version,unique"`
+	AID     uint64 `gorm:"column:aid;index:idx_app_state_version,unique"`
 	Name    string `gorm:"index:idx_app_state_version,unique"`
 	Version uint64
 	Hash    string
 }
 
 type ChatSetting struct {
-	AID        uint64 `gorm:"index:idx_chat_setting,unique"`
-	ChatJID    string `gorm:"index:idx_chat_setting,unique"`
+	AID        uint64 `gorm:"column:aid;index:idx_chat_setting,unique"`
+	ChatJID    string `gorm:"column:chat_jid;index:idx_chat_setting,unique"`
 	MutedUntil int64
 	Pinned     bool
 	Archived   bool
 }
 
 type Contact struct {
-	AID          uint64 `gorm:"index:idx_contact,unique"`
-	TheirJID     string `gorm:"index:idx_contact,unique"`
+	AID          uint64 `gorm:"column:aid;index:idx_contact,unique"`
+	TheirJID     string `gorm:"column:their_jid;index:idx_contact,unique"`
 	FirstName    string
 	FullName     string
 	PushName     string
@@ -49,13 +49,13 @@ type Contact struct {
 }
 
 type IdentityKey struct {
-	AID      uint64 `gorm:"index:idx_identity_key,unique"`
-	TheirJID string `gorm:"index:idx_identity_key,unique"`
+	AID      uint64 `gorm:"column:aid;index:idx_identity_key,unique"`
+	TheirJID string `gorm:"column:their_jid;index:idx_identity_key,unique"`
 	Identity string
 }
 
 type PreKey struct {
-	AID      uint64 `gorm:"index:idx_pre_key,unique"`
+	AID      uint64 `gorm:"column:aid;index:idx_pre_key,unique"`
 	KeyID    uint32 `gorm:"index:idx_pre_key,unique"`
 	Key      string
 	Uploaded bool
@@ -73,25 +73,25 @@ func (pk PreKey) ToKey() *keys.PreKey {
 }
 
 type SenderKey struct {
-	AID       uint64 `gorm:"index:idx_sender_key,unique"`
-	ChatJID   string `gorm:"index:idx_sender_key,unique"`
+	AID       uint64 `gorm:"column:aid;index:idx_sender_key,unique"`
+	ChatJID   string `gorm:"column:chat_jid;index:idx_sender_key,unique"`
 	SenderID  string `gorm:"index:idx_sender_key,unique"`
 	SenderKey string
 }
 
 type Session struct {
-	AID      uint64 `gorm:"index:idx_session,unique"`
-	TheirJID string `gorm:"index:idx_session,unique"`
+	AID      uint64 `gorm:"column:aid;index:idx_session,unique"`
+	TheirJID string `gorm:"column:their_jid;index:idx_session,unique"`
 	Session  string
 }
 
 type Account struct {
-	ID        uint64         `gorm:"primaryKey" json:"id" `
+	ID        uint64         `gorm:"primaryKey"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
-	JID              string
+	JID              string `gorm:"column:jid"`
 	RegistrationID   uint32
 	NoiseKey         string
 	IdentityKey      string
