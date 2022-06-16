@@ -131,7 +131,7 @@ func (d *Container) getPreKeyMaxID(tx *gorm.DB) (uint32, error) {
 		return 0, err
 	}
 
-	return 0, nil
+	return maxID, nil
 }
 
 func (d *Container) GetOrGenPreKeys(count uint32) ([]*keys.PreKey, error) {
@@ -159,9 +159,13 @@ func (d *Container) GetOrGenPreKeys(count uint32) ([]*keys.PreKey, error) {
 			}
 		}
 
+		if err = tx.Create(&newArr).Error; err != nil {
+			return err
+		}
+
 		arr = append(arr, newArr...)
 
-		return tx.Create(&newArr).Error
+		return nil
 	})
 
 	if err != nil {
@@ -187,11 +191,11 @@ func (d *Container) GenOnePreKey() (*keys.PreKey, error) {
 		if err != nil {
 			return err
 		}
-		key = keys.NewPreKey(keyID)
+		key = keys.NewPreKey(keyID + 1)
 
 		return tx.Create(&PreKey{
 			AID:      d.aid,
-			KeyID:    keyID,
+			KeyID:    key.KeyID,
 			Key:      hex.EncodeToString(key.Priv[:]),
 			Uploaded: true,
 		}).Error
