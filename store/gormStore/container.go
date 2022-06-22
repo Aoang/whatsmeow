@@ -48,10 +48,8 @@ func GetOrCreate(db *gorm.DB) (*Container, error) {
 	return GetContainer(db, 0)
 }
 
-func (d *Container) AllowDelete() *Container {
-	d.allowDelete = true
-	return d
-}
+func (d *Container) AllowDelete() *Container { d.allowDelete = true; return d }
+func (d *Container) AID() uint64             { return d.aid }
 
 func (d *Container) Device(log waLog.Logger) *store.Device {
 	device := &store.Device{
