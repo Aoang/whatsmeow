@@ -391,8 +391,27 @@ func (d *Container) PutPushName(user types.JID, pushName string) (bool, string, 
 	}).Create(&arg).Error
 }
 
-func (d *Container) PutBusinessName(user types.JID, businessName string) error {
-	return d.db.Clauses(clause.OnConflict{
+func (d *Container) PutBusinessName(user types.JID, businessName string) (bool, string, error) {
+	var (
+		arg          Contact
+		isChange     bool
+		previousName string
+	)
+	if err := d.specify().Where("their_jid = ?", user.String()).First(&arg).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, "", err
+		}
+		arg.AID = d.aid
+		arg.TheirJID = user.String()
+	}
+
+	if arg.BusinessName != businessName {
+		isChange = true
+		previousName = arg.BusinessName
+		arg.BusinessName = businessName
+	}
+
+	return isChange, previousName, d.db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "aid"}, {Name: "their_jid"}},
 		DoUpdates: clause.AssignmentColumns([]string{"business_name"}),
 	}).Create(&Contact{
