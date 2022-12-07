@@ -55,7 +55,7 @@ func (d *Container) Device(log waLog.Logger) *store.Device {
 	device := &store.Device{
 		Log:        log,
 		Identities: d, Sessions: d, PreKeys: d, SenderKeys: d, AppStateKeys: d,
-		AppState: d, Contacts: d, ChatSettings: d, Container: d,
+		AppState: d, Contacts: d, ChatSettings: d, MsgSecrets: d, Container: d,
 		DatabaseErrorHandler: func(*store.Device, string, int, error) (retry bool) {
 			return false
 		},
