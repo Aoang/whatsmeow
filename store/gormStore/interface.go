@@ -544,3 +544,54 @@ func (d *Container) GetChatSettings(chat types.JID) (types.LocalChatSettings, er
 		Archived:   arg.Archived,
 	}, nil
 }
+
+func (d *Container) PutMessageSecrets(inserts []store.MessageSecretInsert) error {
+	arr := make([]*MessageSecret, 0, len(inserts))
+	for _, v := range inserts {
+		arr = append(arr, &MessageSecret{
+			AID:       d.aid,
+			ChatJID:   v.Chat.String(),
+			SenderID:  v.Sender.String(),
+			MessageID: v.ID,
+			Key:       hex.EncodeToString(v.Secret),
+		})
+	}
+
+	return d.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{
+			{Name: "aid"}, {Name: "chat_jid"},
+			{Name: "sender_id"}, {Name: "message_id"},
+		},
+		DoNothing: true,
+	}).Create(&arr).Error
+}
+
+func (d *Container) PutMessageSecret(chat, sender types.JID, id types.MessageID, secret []byte) error {
+	return d.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{
+			{Name: "aid"}, {Name: "chat_jid"},
+			{Name: "sender_id"}, {Name: "message_id"},
+		},
+		DoUpdates: clause.AssignmentColumns([]string{"key"}),
+	}).Create(&MessageSecret{
+		AID:       d.aid,
+		ChatJID:   chat.String(),
+		SenderID:  sender.String(),
+		MessageID: id,
+		Key:       hex.EncodeToString(secret),
+	}).Error
+}
+
+func (d *Container) GetMessageSecret(chat, sender types.JID, id types.MessageID) ([]byte, error) {
+	var arg string
+	if err := d.db.Model(&MessageSecret{}).Select("token").Where(
+		"aid = ? AND chat_jid = ? AND sender_id = ? AND message_id = ?",
+		d.aid, chat.String(), sender.String(), id,
+	).Find(&arg).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return hex.DecodeString(arg)
+}

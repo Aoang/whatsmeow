@@ -108,3 +108,11 @@ type Account struct {
 	PushName         string
 	Version          uint64
 }
+
+type MessageSecret struct {
+	AID       uint64 `gorm:"column:aid;index:idx_message_secret,unique"`
+	ChatJID   string `gorm:"column:chat_jid;index:idx_message_secret,unique"`
+	SenderID  string `gorm:"index:idx_message_secret,unique"`
+	MessageID string `gorm:"index:idx_message_secret,unique"`
+	Key       string
+}

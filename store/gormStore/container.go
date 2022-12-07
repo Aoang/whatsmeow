@@ -119,3 +119,15 @@ func parseJID(s string) *types.JID {
 
 	return &jid
 }
+
+var (
+	_ store.IdentityStore        = (*Container)(nil)
+	_ store.SessionStore         = (*Container)(nil)
+	_ store.PreKeyStore          = (*Container)(nil)
+	_ store.SenderKeyStore       = (*Container)(nil)
+	_ store.AppStateSyncKeyStore = (*Container)(nil)
+	_ store.AppStateStore        = (*Container)(nil)
+	_ store.ContactStore         = (*Container)(nil)
+	_ store.MsgSecretStore       = (*Container)(nil)
+	_ store.DeviceContainer      = (*Container)(nil)
+)
